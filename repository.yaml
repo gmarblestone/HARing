@@ -1,0 +1,7 @@
+---
+# Home Assistant add-on repository manifest.
+# Advertises this repo to the HA Supervisor when a user adds it as a
+# custom add-on repository URL.
+name: HARing — Home Assistant Add-ons for Colmi rings
+url: https://github.com/gmarblestone/HARing
+maintainer: gmarblestone <https://github.com/gmarblestone>

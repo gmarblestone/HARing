@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+* Restructure the repository into a proper Home Assistant add-on
+  repository: `repository.yaml` at root, add-on files moved to
+  `colmi_r02_ring/`. This fixes "not a valid add-on repository" when
+  adding the URL to HA.
+
 ## 0.1.1
 
 * Persist UI-paired ring address via the Supervisor API

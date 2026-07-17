@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ main ]
 
+defaults:
+  run:
+    # Python project (library + add-on) lives under colmi_r02_ring/ after
+    # the repo was restructured to be a Home Assistant add-on repository.
+    working-directory: colmi_r02_ring
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -31,8 +37,8 @@ jobs:
       id: cached-poetry-dependencies
       uses: actions/cache@v4
       with:
-        path: .venv
-        key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+        path: colmi_r02_ring/.venv
+        key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('colmi_r02_ring/poetry.lock') }}
 
     - name: Install dependencies
       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
