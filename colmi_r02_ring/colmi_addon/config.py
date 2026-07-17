@@ -72,7 +72,9 @@ class AddonConfig:
             mqtt_port=_get_int("MQTTPORT", 1883),
             mqtt_username=_get_str("MQTTUSERNAME"),
             mqtt_password=_get_str("MQTTPASSWORD"),
-            supervisor_token=_get_str("SUPERVISOR_TOKEN"),
+            # HA has historically used both names for this token — check
+            # both so the add-on works across Supervisor versions.
+            supervisor_token=_get_str("SUPERVISOR_TOKEN") or _get_str("HASSIO_TOKEN"),
         )
 
     @property

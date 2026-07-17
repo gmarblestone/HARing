@@ -169,7 +169,7 @@ class RingManager:
                         continue
                     raise last_exc
 
-                client = Client(address)
+                client = Client(device)
                 try:
                     async with client:
                         logger.debug(
@@ -248,7 +248,7 @@ class RingManager:
             if device is None:
                 yield {"error": f"Ring {address} not advertising"}
                 return
-            client = Client(address)
+            client = Client(device)
             try:
                 async with client:
                     while not stop_event.is_set():

@@ -5,10 +5,11 @@ from dataclasses import dataclass
 import logging
 from pathlib import Path
 from types import TracebackType
-from typing import Any
+from typing import Any, Union
 
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
+from bleak.backends.device import BLEDevice
 
 from colmi_r02_client import battery, date_utils, steps, set_time, blink_twice, hr, hr_settings, packet, reboot, real_time
 
@@ -61,9 +62,24 @@ multi packet messages where the parser has state
 
 
 class Client:
-    def __init__(self, address: str, record_to: Path | None = None):
-        self.address = address
-        self.bleak_client = BleakClient(self.address)
+    def __init__(
+        self,
+        address_or_device: Union[str, BLEDevice],
+        record_to: Path | None = None,
+        connect_timeout: float = 20.0,
+    ):
+        # Accept either a MAC string or a BLEDevice object. Passing the
+        # BLEDevice (obtained from a scanner) is strongly preferred on
+        # BlueZ where bleak needs the advertisement data to negotiate
+        # the connection cleanly — passing a bare MAC often causes
+        # "failed to discover services, device disconnected".
+        if isinstance(address_or_device, BLEDevice):
+            self.address = address_or_device.address
+            self._bleak_target: Union[str, BLEDevice] = address_or_device
+        else:
+            self.address = address_or_device
+            self._bleak_target = address_or_device
+        self.bleak_client = BleakClient(self._bleak_target, timeout=connect_timeout)
         self.queues: dict[int, asyncio.Queue] = {cmd: asyncio.Queue() for cmd in COMMAND_HANDLERS}
         self.record_to = record_to
 

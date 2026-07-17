@@ -29,12 +29,21 @@ WORKDIR /app
 COPY requirements-addon.txt ./
 RUN pip install --no-cache-dir -r requirements-addon.txt
 
-# Install the local colmi_r02_client package (library) alongside the web app.
+# Install the colmi_r02_client library + colmi_addon web app. We install
+# editable so there is only one copy of the code and package data (the
+# HTML templates and CSS in colmi_addon/static and colmi_addon/templates)
+# stays alongside the source at /app/colmi_addon — otherwise pip's build
+# isolation can produce a wheel that omits those directories on some
+# poetry-core versions, causing /static/style.css to 404 at runtime.
 COPY pyproject.toml README.md ./
 COPY colmi_r02_client ./colmi_r02_client
 COPY colmi_addon ./colmi_addon
-RUN pip install --no-cache-dir . \
+RUN pip install --no-cache-dir -e . \
     && apk del --no-cache .build-deps
+
+# Fail the build loudly if the static assets somehow weren't packaged.
+RUN test -f /app/colmi_addon/static/style.css \
+    && test -f /app/colmi_addon/templates/base.html
 
 # Add-on runtime files
 COPY run.sh /run.sh

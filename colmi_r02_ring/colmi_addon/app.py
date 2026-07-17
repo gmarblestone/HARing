@@ -98,7 +98,20 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Colmi R02 Ring", version=__version__, lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+# Static asset mount. Log clearly if the directory is missing so the
+# reason for a 404 on /static/... is visible in the add-on logs.
+_STATIC_DIR = BASE_DIR / "static"
+if _STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+    logger.info("Static mount: %s (files: %s)", _STATIC_DIR,
+                sorted(p.name for p in _STATIC_DIR.iterdir()))
+else:
+    logger.error(
+        "Static directory not found at %s — /static/* will 404. This usually "
+        "means the container image was built without colmi_addon/static/.",
+        _STATIC_DIR,
+    )
 
 
 # ---------------------------------------------------------------------------

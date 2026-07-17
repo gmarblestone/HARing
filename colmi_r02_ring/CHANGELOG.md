@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.6
+
+* **BLE**: `Client` now accepts a `BLEDevice` in addition to a MAC
+  string, and `RingManager` passes the freshly-discovered `BLEDevice`
+  (from `find_device_by_address`) straight into bleak. On BlueZ this
+  gives bleak the advertisement data it needs to negotiate the
+  connection cleanly, which fixes the `BleakError: failed to discover
+  services, device disconnected` seen when connecting by bare MAC.
+* **BLE**: default connect timeout raised to 20s (was bleak's default
+  10s) so slow rings have time to complete service discovery.
+* **Supervisor**: also check `HASSIO_TOKEN` as a fallback for the
+  Supervisor bearer token — older Supervisor releases used that name.
+* **Static assets**: log the resolved static directory + its contents
+  at startup, and fail the Docker build if `static/style.css` is
+  missing. Diagnoses / prevents the `GET /static/style.css 404` seen
+  when package data wasn't included in the image.
+* **Docker**: switch to `pip install -e .` so the source at
+  `/app/colmi_addon` is the canonical install path — avoids the
+  ambiguity between the source tree and a site-packages copy that
+  omitted the `static/` folder on some poetry-core versions.
+
 ## 0.1.5
 
 * Pairing now connects to the ring immediately after saving the
