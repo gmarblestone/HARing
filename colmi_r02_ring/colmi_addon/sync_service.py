@@ -85,16 +85,21 @@ class SyncService:
                 start = last if last is not None else end - timedelta(days=7)
 
             try:
-                # Serialise BLE via the ring manager's lock as well.
-                async with self._ring._lock:  # noqa: SLF001 — deliberate
-                    client = Client(address)
-                    async with client:
-                        full_data = await client.get_full_data(start, end)
-                        # Set ring time while we're connected (mirrors the CLI).
-                        try:
-                            await client.set_time(datetime.now(tz=timezone.utc))
-                        except Exception:  # noqa: BLE001
-                            logger.debug("set_time after sync failed (non-fatal)")
+                # Go through RingManager.with_connected_client so we get
+                # the same scan-then-connect + retry treatment as
+                # everything else. This fixes the "device not found" /
+                # "failed to discover services, device disconnected"
+                # errors seen on BlueZ when the adapter's cache is cold.
+                async def _do_sync(client: Client):
+                    full_data = await client.get_full_data(start, end)
+                    # Set ring time while we're connected (mirrors CLI).
+                    try:
+                        await client.set_time(datetime.now(tz=timezone.utc))
+                    except Exception:  # noqa: BLE001
+                        logger.debug("set_time after sync failed (non-fatal)")
+                    return full_data
+
+                full_data = await self._ring.with_connected_client("sync", _do_sync)
 
                 with db.get_db_session(self._db_path) as session:
                     db.full_sync(session, full_data)

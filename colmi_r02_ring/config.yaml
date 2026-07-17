@@ -2,7 +2,7 @@
 # Home Assistant Add-on: Colmi R02 Ring
 # See https://developers.home-assistant.io/docs/add-ons/configuration/
 name: Colmi R02 Ring
-version: "0.1.3"
+version: "0.1.4"
 slug: colmi_r02_ring
 description: Sync steps and heart rate from a Colmi R02 smart ring over BLE, with a live dashboard and optional MQTT sensors.
 url: https://github.com/gmarblestone/HARing

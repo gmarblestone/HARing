@@ -18,11 +18,28 @@ from datetime import datetime, timezone
 from typing import Any
 
 from bleak import BleakScanner
+from bleak.exc import BleakError, BleakDeviceNotFoundError
 
 from colmi_r02_client import real_time
 from colmi_r02_client.client import Client
 
 logger = logging.getLogger(__name__)
+
+# How many extra times to retry a BLE op after the first attempt fails
+# with a transient BleakError. BlueZ on Linux frequently drops the first
+# connect attempt if the adapter hasn't seen the device recently, or
+# fails service discovery right after connect — a short scan + retry
+# almost always succeeds on the second try.
+_BLE_OP_RETRIES = 2
+
+# How long to spend priming the BlueZ discovery cache before each BLE
+# op. bleak's BlueZ backend can't connect to a bare MAC that hasn't
+# been advertised in the last ~30s, so we always scan first.
+_PRIME_SCAN_SECONDS = 10.0
+
+# Cool-off between retries — long enough for BlueZ to clean up the
+# aborted connection before we scan again.
+_RETRY_BACKOFF_SECONDS = 2.0
 
 
 @dataclass
@@ -106,23 +123,80 @@ class RingManager:
             raise RuntimeError("No ring paired. Configure an address via the pairing page.")
         return self._address
 
-    async def _with_client(self, op_name: str, fn):
+    async def with_connected_client(self, op_name: str, fn):
+        """Public wrapper for other services (e.g. SyncService) so they
+        share the same lock and scan-then-connect retry behaviour as
+        internal ops. `fn` is called with a connected `Client`."""
+        return await self._with_client(op_name, fn)
+
+    async def _with_client(self, op_name, fn):
         """Run `fn(client)` inside a fresh connected Client, serialised
-        with the manager lock. `fn` may be sync or async."""
+        with the manager lock. `fn` may be sync or async.
+
+        Wraps the connect in a scan-then-connect-then-retry loop because
+        bleak's BlueZ backend (used inside the HA add-on container)
+        raises `BleakDeviceNotFoundError` when connecting to a MAC the
+        adapter hasn't seen advertise recently, and sometimes hits
+        `failed to discover services, device disconnected` on the first
+        connect after an idle period. Both clear after a quick scan and
+        a second attempt.
+        """
         address = self._require_address()
         async with self._lock:
-            client = Client(address)
-            try:
-                async with client:
-                    logger.debug("Ring op start: %s", op_name)
-                    result = fn(client)
-                    if asyncio.iscoroutine(result):
-                        result = await result
-                    logger.debug("Ring op done: %s", op_name)
-                    return result
-            except Exception:
-                logger.exception("Ring op failed: %s", op_name)
-                raise
+            last_exc: Exception | None = None
+            for attempt in range(1, _BLE_OP_RETRIES + 2):
+                try:
+                    device = await BleakScanner.find_device_by_address(
+                        address, timeout=_PRIME_SCAN_SECONDS
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "%s: scanner failed on attempt %d/%d: %s",
+                        op_name, attempt, _BLE_OP_RETRIES + 1, exc,
+                    )
+                    device = None
+                if device is None:
+                    last_exc = BleakDeviceNotFoundError(
+                        address,
+                        f"Ring {address} not advertising (attempt {attempt})",
+                    )
+                    logger.warning(
+                        "%s: ring %s not visible on attempt %d/%d",
+                        op_name, address, attempt, _BLE_OP_RETRIES + 1,
+                    )
+                    if attempt <= _BLE_OP_RETRIES:
+                        await asyncio.sleep(_RETRY_BACKOFF_SECONDS)
+                        continue
+                    raise last_exc
+
+                client = Client(address)
+                try:
+                    async with client:
+                        logger.debug(
+                            "Ring op start: %s (attempt %d)", op_name, attempt
+                        )
+                        result = fn(client)
+                        if asyncio.iscoroutine(result):
+                            result = await result
+                        logger.debug("Ring op done: %s", op_name)
+                        return result
+                except (BleakError, EOFError, asyncio.TimeoutError) as exc:
+                    last_exc = exc
+                    logger.warning(
+                        "%s: BLE op failed on attempt %d/%d: %s: %s",
+                        op_name, attempt, _BLE_OP_RETRIES + 1,
+                        type(exc).__name__, exc,
+                    )
+                    if attempt <= _BLE_OP_RETRIES:
+                        await asyncio.sleep(_RETRY_BACKOFF_SECONDS)
+                        continue
+                    raise
+                except Exception:
+                    logger.exception("Ring op failed with non-BLE error: %s", op_name)
+                    raise
+            # unreachable — either return or raise above
+            assert last_exc is not None
+            raise last_exc
 
     async def refresh_status(self) -> Status:
         """Connect, read device info + battery, cache the result."""
@@ -166,16 +240,28 @@ class RingManager:
         caller stops the stream by setting `stop_event`."""
         address = self._require_address()
         async with self._lock:
+            # Prime the BlueZ discovery cache before connecting — see
+            # comment on _with_client() for why this is needed.
+            device = await BleakScanner.find_device_by_address(
+                address, timeout=_PRIME_SCAN_SECONDS
+            )
+            if device is None:
+                yield {"error": f"Ring {address} not advertising"}
+                return
             client = Client(address)
-            async with client:
-                while not stop_event.is_set():
-                    try:
-                        samples = await client.get_realtime_reading(reading)
-                    except Exception as exc:
-                        logger.warning("real-time poll failed: %s", exc)
-                        yield {"error": f"{type(exc).__name__}: {exc}"}
-                        return
-                    if samples is None:
-                        yield {"error": "No reading (is the ring being worn?)"}
-                        continue
-                    yield {"samples": list(samples), "ts": datetime.now(tz=timezone.utc).isoformat()}
+            try:
+                async with client:
+                    while not stop_event.is_set():
+                        try:
+                            samples = await client.get_realtime_reading(reading)
+                        except Exception as exc:
+                            logger.warning("real-time poll failed: %s", exc)
+                            yield {"error": f"{type(exc).__name__}: {exc}"}
+                            return
+                        if samples is None:
+                            yield {"error": "No reading (is the ring being worn?)"}
+                            continue
+                        yield {"samples": list(samples), "ts": datetime.now(tz=timezone.utc).isoformat()}
+            except (BleakError, EOFError) as exc:
+                logger.warning("real-time stream connect failed: %s", exc)
+                yield {"error": f"{type(exc).__name__}: {exc}"}

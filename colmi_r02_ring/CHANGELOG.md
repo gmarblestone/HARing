@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.4
+
+* Fix BleakDeviceNotFoundError on refresh status and
+  "failed to discover services, device disconnected" on sync when
+  running on BlueZ inside Home Assistant OS. `RingManager` now primes
+  the adapter's discovery cache with `find_device_by_address` before
+  every connect and retries transient BLE errors twice with a short
+  backoff.
+* `SyncService` now routes its connection through the same helper
+  (`RingManager.with_connected_client`) so scheduled and manual syncs
+  get the same scan-and-retry treatment.
+* Real-time HR stream also primes the cache before opening the SSE
+  session.
+
 ## 0.1.3
 
 * Remove the shipped `apparmor.txt` profile. It only granted read
