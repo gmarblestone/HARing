@@ -65,3 +65,57 @@ class SupervisorClient:
         logger.info("Supervisor update_addon_options -> %s", status)
         if status >= 300:
             raise RuntimeError(f"Supervisor returned HTTP {status}: {payload}")
+
+    async def get_mqtt_service(self) -> dict | None:
+        """Fetch MQTT broker credentials from the Supervisor's services API.
+
+        Returns a dict with keys like ``host``, ``port``, ``username``,
+        ``password``, ``ssl``, ``protocol`` when the MQTT service is
+        provisioned for this add-on, or ``None`` when the token is missing
+        or the Supervisor reports the service as unavailable (e.g. no MQTT
+        broker is installed, or the add-on isn't granted access).
+
+        Requires ``services: - mqtt:want`` (or ``mqtt:need``) in config.yaml
+        so the Supervisor exposes the endpoint to this add-on.
+        """
+        if not self.available:
+            return None
+
+        url = f"{self._base_url}/services/mqtt"
+        request = Request(
+            url,
+            method="GET",
+            headers={"Authorization": f"Bearer {self._token}"},
+        )
+
+        def _do_request() -> tuple[int, str]:
+            try:
+                with urlopen(request, timeout=10) as resp:
+                    return resp.status, resp.read().decode("utf-8", errors="replace")
+            except HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace") if hasattr(exc, "read") else str(exc)
+                return exc.code, detail
+            except URLError as exc:
+                raise RuntimeError(f"Supervisor unreachable: {exc.reason}") from exc
+
+        try:
+            status, payload = await asyncio.to_thread(_do_request)
+        except RuntimeError as exc:
+            logger.warning("Supervisor get_mqtt_service failed: %s", exc)
+            return None
+
+        if status >= 300:
+            logger.info("Supervisor /services/mqtt returned HTTP %s (no MQTT service?)", status)
+            return None
+
+        try:
+            body = json.loads(payload)
+        except json.JSONDecodeError:
+            logger.warning("Supervisor /services/mqtt returned non-JSON body")
+            return None
+
+        data = body.get("data") if isinstance(body, dict) else None
+        if not isinstance(data, dict) or not data.get("host"):
+            logger.info("Supervisor /services/mqtt has no host in response")
+            return None
+        return data

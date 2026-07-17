@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.9
+
+* **MQTT auto-discovery via Supervisor API**. Home Assistant's Supervisor
+  does not inject MQTT credentials as env vars — it exposes them at
+  `GET http://supervisor/services/mqtt`. On startup, if MQTT is enabled
+  and no host is configured but a `SUPERVISOR_TOKEN` is present, the
+  add-on now fetches broker host/port/username/password from that
+  endpoint and reconfigures the MQTT publisher. Resolves the
+  `mqtt_host=''` → publisher-disabled path observed in 0.1.8.
+* Corrected the misleading `run.sh` comment that claimed Supervisor
+  injects `MQTTHOST` (it doesn't).
+
 ## 0.1.8
 
 * **Big fix**: `run.sh` shebang changed to

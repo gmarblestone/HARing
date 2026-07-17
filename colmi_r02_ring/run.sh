@@ -42,7 +42,11 @@ PY
 )"
 fi
 
-# HA Supervisor injects these when services: mqtt:want is granted access.
+# MQTT credentials are NOT injected as env vars by the Supervisor. They
+# have to be fetched at runtime from GET http://supervisor/services/mqtt
+# using SUPERVISOR_TOKEN. The addon does that in its FastAPI lifespan.
+# The fallbacks below only matter for local development where you want
+# to point at an external broker without going through the Supervisor.
 : "${MQTTHOST:=${MQTT_HOST:-}}"
 : "${MQTTPORT:=${MQTT_PORT:-1883}}"
 : "${MQTTUSERNAME:=${MQTT_USERNAME:-}}"

@@ -27,7 +27,7 @@ import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
@@ -101,9 +101,33 @@ async def lifespan(app: FastAPI):
 
     ring = RingManager(address=cfg.address)
     sync = SyncService(ring=ring, db_path=cfg.db_path)
+    supervisor = SupervisorClient(cfg.supervisor_token)
+
+    # Supervisor doesn't inject MQTT credentials as env vars; it exposes
+    # them via the /services/mqtt API endpoint. If MQTT is enabled and we
+    # have a Supervisor token but no host from the env, ask Supervisor.
+    if cfg.mqtt_enabled and not cfg.mqtt_host and supervisor.available:
+        try:
+            mqtt_info = await supervisor.get_mqtt_service()
+        except Exception as exc:
+            logger.warning("Fetching MQTT service info failed: %s", exc)
+            mqtt_info = None
+        if mqtt_info:
+            cfg = replace(
+                cfg,
+                mqtt_host=str(mqtt_info.get("host") or ""),
+                mqtt_port=int(mqtt_info.get("port") or cfg.mqtt_port),
+                mqtt_username=str(mqtt_info.get("username") or ""),
+                mqtt_password=str(mqtt_info.get("password") or ""),
+            )
+            logger.info(
+                "MQTT credentials from Supervisor: host=%s port=%s user=%s",
+                cfg.mqtt_host, cfg.mqtt_port,
+                "set" if cfg.mqtt_username else "anonymous",
+            )
+
     mqtt_pub = MqttPublisher(cfg)
     mqtt_pub.start()
-    supervisor = SupervisorClient(cfg.supervisor_token)
 
     app.state.config = cfg
     app.state.ring = ring
