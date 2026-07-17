@@ -112,3 +112,20 @@ code {
 .unit { color: var(--muted); }
 
 canvas { max-width: 100%; height: auto; margin-top: 0.5rem; }
+
+.banner {
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+}
+.banner.warn {
+  background: rgba(255, 193, 7, 0.12);
+  border-color: rgba(255, 193, 7, 0.35);
+  color: #ffc107;
+}
+.banner.err {
+  background: rgba(255, 82, 82, 0.14);
+  border-color: rgba(255, 82, 82, 0.4);
+  color: var(--err);
+}

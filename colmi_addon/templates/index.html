@@ -2,6 +2,20 @@
 {% block title %}Dashboard — Colmi R02{% endblock %}
 
 {% block content %}
+{% if warn == 'no_supervisor' %}
+<div class="banner warn">
+  Address saved for this session only. The Supervisor API isn't reachable
+  (this happens outside Home Assistant OS or during local dev), so the
+  paired address will reset when the add-on restarts.
+</div>
+{% elif warn == 'persist_failed' %}
+<div class="banner err">
+  Failed to persist the address to add-on options. Check the add-on log
+  for the Supervisor error; you can also set <code>address</code> manually
+  in the Configuration tab.
+</div>
+{% endif %}
+
 <section class="card">
   <h1>Status</h1>
   {% if not address %}

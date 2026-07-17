@@ -53,6 +53,9 @@ class AddonConfig:
     mqtt_port: int
     mqtt_username: str
     mqtt_password: str
+    # Supervisor bearer token, injected automatically for add-ons with
+    # `hassio_api: true`. Empty when running outside an add-on.
+    supervisor_token: str
 
     @classmethod
     def from_env(cls) -> "AddonConfig":
@@ -69,6 +72,7 @@ class AddonConfig:
             mqtt_port=_get_int("MQTTPORT", 1883),
             mqtt_username=_get_str("MQTTUSERNAME"),
             mqtt_password=_get_str("MQTTPASSWORD"),
+            supervisor_token=_get_str("SUPERVISOR_TOKEN"),
         )
 
     @property
@@ -76,3 +80,17 @@ class AddonConfig:
         """True when the Supervisor gave us MQTT credentials AND the user
         hasn't disabled the integration in add-on options."""
         return self.mqtt_enabled and bool(self.mqtt_host)
+
+    def as_options_dict(self) -> dict:
+        """The subset of fields that map to the add-on's user-configurable
+        options (matches the `options`/`schema` in config.yaml). Used when
+        we PATCH the add-on's own options via the Supervisor API."""
+        return {
+            "address": self.address,
+            "scan_seconds": self.scan_seconds,
+            "auto_sync_minutes": self.auto_sync_minutes,
+            "auto_sync_enabled": self.auto_sync_enabled,
+            "mqtt_enabled": self.mqtt_enabled,
+            "mqtt_discovery_prefix": self.mqtt_discovery_prefix,
+            "log_level": self.log_level,
+        }

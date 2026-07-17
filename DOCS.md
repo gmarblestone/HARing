@@ -34,6 +34,21 @@ Read data from a Colmi R02 (or R06 / R10) smart ring directly on Home Assistant 
 4. Click **Sync now** to pull step and heart-rate history into the local SQLite database (`/data/ring_data.sqlite` in the add-on).
 5. Visit **Charts** to see step totals and HR samples over the last 7 days.
 
+## How pairing is persisted
+
+When you pair through the UI, the add-on writes the new address into its
+own configuration by calling the Home Assistant Supervisor API
+(`POST /addons/self/options`). That means the paired address survives
+container restarts and shows up in the add-on's Configuration tab as if
+you had typed it there yourself.
+
+If the Supervisor API is unreachable (e.g. you're running the FastAPI app
+outside a Supervisor add-on for local development, or the API call fails)
+the address is still applied to the currently running process, so the
+current session works — but a banner on the dashboard warns you that the
+pairing won't survive a restart. In that case, copy the address into the
+add-on's Configuration tab manually.
+
 ## MQTT sensors
 
 When the MQTT service is available and `mqtt_enabled` is on, the add-on publishes discovery configs at `homeassistant/sensor/colmi_<slug>/…` and state to `colmi_r02/<slug>/state`. Sensors exposed:

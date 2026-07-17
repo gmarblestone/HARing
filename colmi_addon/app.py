@@ -42,6 +42,7 @@ from . import __version__, data
 from .config import AddonConfig
 from .mqtt_publisher import MqttPublisher
 from .ring_manager import RingManager
+from .supervisor import SupervisorClient
 from .sync_service import SyncService
 
 logger = logging.getLogger("colmi_addon")
@@ -66,17 +67,24 @@ async def lifespan(app: FastAPI):
     cfg = AddonConfig.from_env()
     _configure_logging(cfg.log_level)
     logger.info("Starting Colmi R02 add-on v%s", __version__)
-    logger.info("Config: %s", {k: v for k, v in asdict(cfg).items() if "password" not in k})
+    safe_cfg = {
+        k: v for k, v in asdict(cfg).items()
+        if "password" not in k and "token" not in k
+    }
+    safe_cfg["supervisor"] = "yes" if cfg.supervisor_token else "no"
+    logger.info("Config: %s", safe_cfg)
 
     ring = RingManager(address=cfg.address)
     sync = SyncService(ring=ring, db_path=cfg.db_path)
     mqtt_pub = MqttPublisher(cfg)
     mqtt_pub.start()
+    supervisor = SupervisorClient(cfg.supervisor_token)
 
     app.state.config = cfg
     app.state.ring = ring
     app.state.sync = sync
     app.state.mqtt = mqtt_pub
+    app.state.supervisor = supervisor
 
     if cfg.auto_sync_enabled:
         sync.start_scheduler(cfg.auto_sync_minutes)
@@ -125,6 +133,10 @@ def _mqtt(request: Request) -> MqttPublisher:
     return request.app.state.mqtt
 
 
+def _supervisor(request: Request) -> SupervisorClient:
+    return request.app.state.supervisor
+
+
 # ---------------------------------------------------------------------------
 # HTML pages
 # ---------------------------------------------------------------------------
@@ -144,6 +156,8 @@ async def dashboard(request: Request):
             "sync_running": sync.running,
             "auto_sync_enabled": _cfg(request).auto_sync_enabled,
             "auto_sync_minutes": _cfg(request).auto_sync_minutes,
+            "supervisor_available": _supervisor(request).available,
+            "warn": request.query_params.get("warn", ""),
         },
     )
 
@@ -159,8 +173,30 @@ async def pair_page(request: Request):
 @app.post("/pair")
 async def pair_submit(request: Request, address: str = Form(...)):
     ring = _ring(request)
-    ring.set_address(address.strip())
-    return RedirectResponse(url="./", status_code=303)
+    address = address.strip()
+    ring.set_address(address)
+
+    # Persist the address to the add-on's own options so it survives
+    # container restarts. The write is best-effort: if the Supervisor API
+    # isn't reachable (local dev, or a transient error) we still keep the
+    # in-memory address so the current session works, and surface a hint
+    # via the ?warn= query param.
+    supervisor = _supervisor(request)
+    warn = ""
+    if supervisor.available:
+        try:
+            new_options = _cfg(request).as_options_dict()
+            new_options["address"] = address
+            await supervisor.update_addon_options(new_options)
+        except Exception as exc:
+            logger.warning("Failed to persist address via Supervisor: %s", exc)
+            warn = "persist_failed"
+    else:
+        logger.info("Supervisor API unavailable; address stored in memory only")
+        warn = "no_supervisor"
+
+    target = "./" if not warn else f"./?warn={warn}"
+    return RedirectResponse(url=target, status_code=303)
 
 
 @app.get("/live", response_class=HTMLResponse)
