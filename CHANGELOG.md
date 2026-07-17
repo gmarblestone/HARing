@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1
 
 * Persist UI-paired ring address via the Supervisor API
   (`POST /addons/self/options`) so pairings survive add-on restarts.
