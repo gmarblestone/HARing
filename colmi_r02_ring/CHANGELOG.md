@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.10
+
+* Log ring RSSI on every connect attempt and warn when it is <= -85 dBm.
+  That range is where cheap BLE rings start dropping GATT service
+  discovery with `failed to discover services, device disconnected` or
+  `ATT 0x0e (Unlikely Error)` — the root cause is signal strength, not
+  the retry loop, so surfacing it in the log lets the user act on it.
+
 ## 0.1.9
 
 * **MQTT auto-discovery via Supervisor API**. Home Assistant's Supervisor

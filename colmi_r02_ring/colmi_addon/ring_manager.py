@@ -41,6 +41,11 @@ _PRIME_SCAN_SECONDS = 10.0
 # aborted connection before we scan again.
 _RETRY_BACKOFF_SECONDS = 2.0
 
+# BLE signal strength below this (in dBm) is likely too weak to hold a
+# stable GATT connection to a cheap ring. We still try to connect, but
+# log a warning so the user knows to move the ring closer to the host.
+_WEAK_SIGNAL_RSSI_DBM = -85
+
 
 @dataclass
 class ScanResult:
@@ -168,6 +173,21 @@ class RingManager:
                         await asyncio.sleep(_RETRY_BACKOFF_SECONDS)
                         continue
                     raise last_exc
+
+                rssi = getattr(device, "rssi", None)
+                if isinstance(rssi, int):
+                    if rssi <= _WEAK_SIGNAL_RSSI_DBM:
+                        logger.warning(
+                            "%s: ring signal is weak (rssi=%d dBm on attempt %d/%d). "
+                            "Move the ring within ~2 m of the host — GATT "
+                            "service discovery often fails below -85 dBm.",
+                            op_name, rssi, attempt, _BLE_OP_RETRIES + 1,
+                        )
+                    else:
+                        logger.info(
+                            "%s: ring visible (rssi=%d dBm, attempt %d/%d)",
+                            op_name, rssi, attempt, _BLE_OP_RETRIES + 1,
+                        )
 
                 client = Client(device)
                 try:
