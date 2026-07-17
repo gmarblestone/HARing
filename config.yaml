@@ -1,0 +1,54 @@
+---
+# Home Assistant Add-on: Colmi R02 Ring
+# See https://developers.home-assistant.io/docs/add-ons/configuration/
+name: Colmi R02 Ring
+version: "0.1.0"
+slug: colmi_r02_ring
+description: Sync steps and heart rate from a Colmi R02 smart ring over BLE, with a live dashboard and optional MQTT sensors.
+url: https://github.com/gmarblestone/HARing
+arch:
+  - amd64
+  - aarch64
+  - armv7
+  - armhf
+  - i386
+init: false
+startup: application
+boot: auto
+hassio_role: default
+hassio_api: true
+
+# Web UI is exposed only through Home Assistant's ingress proxy.
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:ring
+panel_title: Colmi Ring
+panel_admin: false
+
+# Access to the host BlueZ stack via D-Bus is required for BLE scanning /
+# connecting. host_dbus + the bluetooth flag together are the minimum needed
+# for bleak to talk to the ring on Home Assistant OS.
+host_dbus: true
+
+# The MQTT service is optional; without it the add-on still works but the
+# "publish to HA as MQTT sensors" feature stays dormant.
+services:
+  - mqtt:want
+
+options:
+  address: ""
+  scan_seconds: 8
+  auto_sync_minutes: 30
+  auto_sync_enabled: true
+  mqtt_enabled: true
+  mqtt_discovery_prefix: homeassistant
+  log_level: info
+
+schema:
+  address: str?
+  scan_seconds: int(2,60)
+  auto_sync_minutes: int(0,1440)
+  auto_sync_enabled: bool
+  mqtt_enabled: bool
+  mqtt_discovery_prefix: str
+  log_level: list(trace|debug|info|notice|warning|error|fatal)

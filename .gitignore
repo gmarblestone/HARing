@@ -3,3 +3,5 @@ captures/*.bin
 .hypothesis
 dist/
 __pycache__
+.venv/
+.offline-markdown-preview/

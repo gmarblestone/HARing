@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Colmi R02{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Status</h1>
+  {% if not address %}
+    <p class="muted">No ring paired yet. <a href="pair">Pair a ring</a> to get started.</p>
+  {% else %}
+    <dl class="status-grid" id="status-grid">
+      <dt>Address</dt>       <dd id="s-address">{{ address }}</dd>
+      <dt>Reachable</dt>     <dd id="s-reach">{{ 'yes' if status and status.reachable else 'unknown' }}</dd>
+      <dt>Battery</dt>       <dd id="s-batt">{% if status and status.battery_level is not none %}{{ status.battery_level }}%{% else %}—{% endif %}</dd>
+      <dt>Charging</dt>      <dd id="s-charge">{% if status %}{{ 'yes' if status.charging else 'no' }}{% else %}—{% endif %}</dd>
+      <dt>Firmware</dt>      <dd id="s-fw">{{ status.fw_version if status else '—' }}</dd>
+      <dt>Hardware</dt>      <dd id="s-hw">{{ status.hw_version if status else '—' }}</dd>
+      <dt>Last seen</dt>     <dd id="s-seen">{{ status.last_seen.isoformat() if status and status.last_seen else '—' }}</dd>
+      <dt>Last error</dt>    <dd id="s-err">{{ status.last_error if status and status.last_error else '—' }}</dd>
+    </dl>
+    <div class="row">
+      <button id="btn-refresh" class="btn">Refresh status</button>
+      <button id="btn-sync" class="btn primary" {% if sync_running %}disabled{% endif %}>Sync now</button>
+    </div>
+    <p id="sync-msg" class="muted"></p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Last sync</h2>
+  {% if last_sync %}
+    <p>
+      {{ 'Succeeded' if last_sync.ok else 'Failed' }}
+      at {{ last_sync.finished_at.isoformat() }}
+      ({{ '%.1f'|format(last_sync.duration_seconds) }}s).
+    </p>
+    <p class="muted">
+      Range: {{ last_sync.start_range.isoformat() }} → {{ last_sync.end_range.isoformat() }}<br>
+      Heart-rate day-logs: {{ last_sync.hr_days }}, step day-logs: {{ last_sync.step_days }}
+      {% if last_sync.error %}<br><span class="err">Error: {{ last_sync.error }}</span>{% endif %}
+    </p>
+  {% else %}
+    <p class="muted">No sync has run yet.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Auto sync</h2>
+  <p>
+    {% if auto_sync_enabled and auto_sync_minutes > 0 %}
+      Enabled — every {{ auto_sync_minutes }} minutes.
+    {% else %}
+      Disabled. Change this in the add-on's Configuration tab in Home Assistant.
+    {% endif %}
+  </p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const refreshBtn = document.getElementById('btn-refresh');
+  const syncBtn = document.getElementById('btn-sync');
+  const msg = document.getElementById('sync-msg');
+  if (!refreshBtn) return;
+
+  function setStatus(s) {
+    if (!s) return;
+    document.getElementById('s-address').textContent = s.address || '—';
+    document.getElementById('s-reach').textContent = s.reachable ? 'yes' : 'no';
+    document.getElementById('s-batt').textContent = (s.battery_level ?? '—') + (s.battery_level != null ? '%' : '');
+    document.getElementById('s-charge').textContent = s.charging ? 'yes' : 'no';
+    document.getElementById('s-fw').textContent = s.fw_version || '—';
+    document.getElementById('s-hw').textContent = s.hw_version || '—';
+    document.getElementById('s-seen').textContent = s.last_seen || '—';
+    document.getElementById('s-err').textContent = s.last_error || '—';
+  }
+
+  refreshBtn.addEventListener('click', async () => {
+    refreshBtn.disabled = true; msg.textContent = 'Refreshing...';
+    try {
+      const r = await fetch('api/status/refresh', {method: 'POST'});
+      const j = await r.json();
+      setStatus(j.status);
+      msg.textContent = 'Status refreshed.';
+    } catch (e) {
+      msg.textContent = 'Refresh failed: ' + e;
+    } finally {
+      refreshBtn.disabled = false;
+    }
+  });
+
+  syncBtn.addEventListener('click', async () => {
+    syncBtn.disabled = true; msg.textContent = 'Sync running (this can take 30-90s)...';
+    try {
+      const r = await fetch('api/sync', {method: 'POST'});
+      const j = await r.json();
+      const res = j.result;
+      if (res.ok) {
+        msg.textContent = `Sync succeeded in ${res.duration_seconds.toFixed(1)}s — ${res.hr_days} HR days, ${res.step_days} step days.`;
+      } else {
+        msg.textContent = 'Sync failed: ' + (res.error || 'unknown');
+      }
+    } catch (e) {
+      msg.textContent = 'Sync failed: ' + e;
+    } finally {
+      syncBtn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

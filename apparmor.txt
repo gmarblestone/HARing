@@ -1,0 +1,13 @@
+#include <tunables/global>
+
+profile colmi_r02_ring flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  #include <abstractions/python>
+
+  # Standard filesystem access
+  /**  rmix,
+
+  # BlueZ needs D-Bus to the system bus
+  #include <abstractions/dbus-strict>
+  dbus (send, receive) bus=system,
+}

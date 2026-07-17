@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Pair — Colmi R02{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Pair a ring</h1>
+  <p>
+    Current address: <code>{{ address or '(none)' }}</code>.
+    Scan for nearby BLE devices and pick your ring, or type an address directly.
+  </p>
+  <div class="row">
+    <button id="btn-scan" class="btn">Scan (8s)</button>
+    <label class="row-inline">
+      <input type="checkbox" id="all-devices"> Show all BLE devices (not just rings)
+    </label>
+  </div>
+  <p id="scan-msg" class="muted"></p>
+  <table id="scan-results" class="scan-table hidden">
+    <thead><tr><th>Name</th><th>Address</th><th>RSSI</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Set address manually</h2>
+  <form method="post" action="pair" class="row">
+    <input type="text" name="address" placeholder="AA:BB:CC:DD:EE:FF" value="{{ address }}" required>
+    <button type="submit" class="btn primary">Save</button>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const btn = document.getElementById('btn-scan');
+  const msg = document.getElementById('scan-msg');
+  const table = document.getElementById('scan-results');
+  const tbody = table.querySelector('tbody');
+  const allBox = document.getElementById('all-devices');
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    msg.textContent = 'Scanning...';
+    tbody.innerHTML = '';
+    table.classList.add('hidden');
+    try {
+      const url = 'api/scan?include_all=' + (allBox.checked ? 'true' : 'false');
+      const r = await fetch(url, {method: 'POST'});
+      const j = await r.json();
+      if (!j.devices.length) {
+        msg.textContent = 'No devices found. Make sure the ring is close and Bluetooth is on.';
+        return;
+      }
+      msg.textContent = `Found ${j.devices.length} device(s).`;
+      for (const d of j.devices) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(d.name)}</td>
+          <td><code>${escapeHtml(d.address)}</code></td>
+          <td>${d.rssi ?? ''}</td>
+          <td>
+            <form method="post" action="pair">
+              <input type="hidden" name="address" value="${escapeHtml(d.address)}">
+              <button type="submit" class="btn small primary">Pair</button>
+            </form>
+          </td>`;
+        tbody.appendChild(tr);
+      }
+      table.classList.remove('hidden');
+    } catch (e) {
+      msg.textContent = 'Scan failed: ' + e;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+})();
+</script>
+{% endblock %}

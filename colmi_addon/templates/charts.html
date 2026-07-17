@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Charts — Colmi R02{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Historical data</h1>
+  {% if not address %}
+    <p class="muted">Pair a ring first.</p>
+  {% else %}
+    <div class="row">
+      <label>Days:
+        <select id="days-select">
+          <option value="3">3</option>
+          <option value="7" selected>7</option>
+          <option value="14">14</option>
+          <option value="30">30</option>
+        </select>
+      </label>
+      <button id="btn-reload" class="btn">Reload</button>
+    </div>
+    <p id="charts-msg" class="muted"></p>
+
+    <h2>Steps per day</h2>
+    <canvas id="steps-canvas" width="600" height="220"></canvas>
+
+    <h2>Heart rate (recent samples)</h2>
+    <canvas id="hr-canvas" width="600" height="220"></canvas>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  const daysSel = document.getElementById('days-select');
+  const reload = document.getElementById('btn-reload');
+  const msg = document.getElementById('charts-msg');
+  if (!daysSel) return;
+
+  const stepsChart = new Chart(document.getElementById('steps-canvas').getContext('2d'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Steps', data: [], backgroundColor: '#4fc3f7' }] },
+    options: { plugins: { legend: { display: false } } },
+  });
+  const hrChart = new Chart(document.getElementById('hr-canvas').getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets: [{
+      label: 'HR', data: [], borderColor: '#ff5252', tension: 0.15, pointRadius: 0,
+    }]},
+    options: { plugins: { legend: { display: false } }, scales: { y: { suggestedMin: 40, suggestedMax: 160 } } },
+  });
+
+  async function load() {
+    const days = daysSel.value;
+    msg.textContent = 'Loading...';
+    try {
+      const [stepsR, hrR] = await Promise.all([
+        fetch('api/data/steps?days=' + days).then(r => r.json()),
+        fetch('api/data/hr?days=' + days).then(r => r.json()),
+      ]);
+      stepsChart.data.labels = stepsR.points.map(p => p.day);
+      stepsChart.data.datasets[0].data = stepsR.points.map(p => p.steps);
+      stepsChart.update();
+      hrChart.data.labels = hrR.points.map(p => p.timestamp);
+      hrChart.data.datasets[0].data = hrR.points.map(p => p.reading);
+      hrChart.update();
+      msg.textContent = `${stepsR.points.length} step days, ${hrR.points.length} HR samples.`;
+    } catch (e) {
+      msg.textContent = 'Load failed: ' + e;
+    }
+  }
+
+  reload.addEventListener('click', load);
+  daysSel.addEventListener('change', load);
+  load();
+})();
+</script>
+{% endblock %}

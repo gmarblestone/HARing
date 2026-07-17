@@ -1,0 +1,11 @@
+# Force LF line endings for files that must be LF (shell scripts run
+# inside Linux containers, Dockerfiles, YAML etc.).
+* text=auto eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary

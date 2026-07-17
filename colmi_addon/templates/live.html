@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Live HR — Colmi R02{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Live heart rate</h1>
+  {% if not address %}
+    <p class="muted">Pair a ring first.</p>
+  {% else %}
+    <p>Reading real-time heart rate from <code>{{ address }}</code>. Ring must be on a finger to read.</p>
+    <div class="row">
+      <button id="btn-start" class="btn primary">Start</button>
+      <button id="btn-stop" class="btn" disabled>Stop</button>
+    </div>
+    <p id="hr-msg" class="muted"></p>
+    <div class="hr-display">
+      <span id="hr-current">--</span>
+      <span class="unit">bpm</span>
+    </div>
+    <canvas id="hr-canvas" width="600" height="180"></canvas>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  const startBtn = document.getElementById('btn-start');
+  const stopBtn = document.getElementById('btn-stop');
+  const cur = document.getElementById('hr-current');
+  const msg = document.getElementById('hr-msg');
+  const canvas = document.getElementById('hr-canvas');
+  if (!startBtn) return;
+
+  let evt = null;
+  const chart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets: [{
+      label: 'HR (bpm)', data: [], borderColor: '#ff5252', tension: 0.2, pointRadius: 0,
+    }]},
+    options: {
+      animation: false, scales: { y: { suggestedMin: 40, suggestedMax: 160 } },
+      plugins: { legend: { display: false } },
+    },
+  });
+
+  function addSamples(samples, ts) {
+    for (const s of samples) {
+      chart.data.labels.push(new Date(ts).toLocaleTimeString());
+      chart.data.datasets[0].data.push(s);
+      cur.textContent = s;
+    }
+    while (chart.data.labels.length > 120) {
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+    }
+    chart.update('none');
+  }
+
+  startBtn.addEventListener('click', () => {
+    if (evt) return;
+    msg.textContent = 'Connecting to ring...';
+    evt = new EventSource('api/live/hr');
+    startBtn.disabled = true; stopBtn.disabled = false;
+    evt.addEventListener('hr', (e) => {
+      const data = JSON.parse(e.data);
+      if (data.error) {
+        msg.textContent = data.error;
+      } else {
+        msg.textContent = '';
+        addSamples(data.samples || [], data.ts);
+      }
+    });
+    evt.addEventListener('error', () => {
+      msg.textContent = 'Stream ended.';
+      stopStream();
+    });
+  });
+
+  function stopStream() {
+    if (evt) { evt.close(); evt = null; }
+    startBtn.disabled = false; stopBtn.disabled = true;
+  }
+  stopBtn.addEventListener('click', stopStream);
+  window.addEventListener('beforeunload', stopStream);
+})();
+</script>
+{% endblock %}

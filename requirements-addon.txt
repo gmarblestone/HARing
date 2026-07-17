@@ -1,0 +1,9 @@
+# Web layer dependencies for the Home Assistant add-on.
+# The core ring library's deps (bleak, sqlalchemy, asyncclick) come from
+# pyproject.toml when we `pip install .` inside the Dockerfile.
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+jinja2==3.1.4
+python-multipart==0.0.17
+paho-mqtt==2.1.0
+sse-starlette==2.1.3

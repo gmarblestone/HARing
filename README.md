@@ -141,6 +141,22 @@ Commands:
 
 You can use the `colmi_r02_client.client` class as a library to do your own stuff in python. I've tried to write a lot of docstrings, which are visible on [the docs site](https://tahnok.github.io/colmi_r02_client/)
 
+### As a Home Assistant add-on
+
+This fork ([gmarblestone/HARing](https://github.com/gmarblestone/HARing)) doubles as a Home Assistant Supervisor add-on with an ingress web UI, scheduled sync, live heart-rate viewer, historical charts, and optional MQTT sensors.
+
+Quick start (Home Assistant OS / Supervised):
+
+1. On the HA host, clone the repo into `/addons/colmi_r02_ring/`:
+   ```sh
+   git clone https://github.com/gmarblestone/HARing.git /addons/colmi_r02_ring
+   ```
+   (or add it as a custom add-on repository in HA).
+2. **Settings → Add-ons → Add-on Store**, refresh, install **Colmi R02 Ring**, start it.
+3. Open the Web UI and pair your ring on the **Pair** page.
+
+Full details, options reference, MQTT topic layout, and troubleshooting live in [DOCS.md](DOCS.md).
+
 ## Communication Protocol Details
 
 I've kept a lab notebook style stream of consciousness notes on https://notes.tahnok.ca/, starting with [2024-07-07 Smart Ring Hacking](https://notes.tahnok.ca/blog/2024-07-07+Smart+Ring+Hacking) and eventually getting put under one folder. That's the best source for all the raw stuff.

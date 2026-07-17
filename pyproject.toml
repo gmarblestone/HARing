@@ -4,6 +4,14 @@ version = "0.1.0"
 description = "Connect to Colmi R02 smart ring over BLE"
 authors = ["Wesley Ellis <tahnok@gmail.com>"]
 readme = "README.md"
+packages = [
+    { include = "colmi_r02_client" },
+    { include = "colmi_addon" },
+]
+include = [
+    "colmi_addon/templates/*.html",
+    "colmi_addon/static/*",
+]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"

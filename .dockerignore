@@ -1,0 +1,13 @@
+.git
+.gitignore
+.github
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.sqlite
+*.sqlite-journal
+docs
+tests
+captures
+MYSTERIES.md

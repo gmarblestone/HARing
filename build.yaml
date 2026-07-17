@@ -1,0 +1,15 @@
+---
+# Multi-arch build map for the Home Assistant add-on.
+# Uses the official Home Assistant Python base images (Alpine).
+build_from:
+  amd64: ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20
+  aarch64: ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20
+  armv7: ghcr.io/home-assistant/armv7-base-python:3.12-alpine3.20
+  armhf: ghcr.io/home-assistant/armhf-base-python:3.12-alpine3.20
+  i386: ghcr.io/home-assistant/i386-base-python:3.12-alpine3.20
+
+labels:
+  org.opencontainers.image.title: Colmi R02 Ring
+  org.opencontainers.image.description: Home Assistant add-on to sync a Colmi R02 smart ring over BLE.
+  org.opencontainers.image.source: https://github.com/gmarblestone/HARing
+  org.opencontainers.image.licenses: MIT
