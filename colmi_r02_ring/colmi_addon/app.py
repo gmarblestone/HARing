@@ -31,8 +31,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
@@ -125,14 +124,26 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Colmi R02 Ring", version=__version__, lifespan=lifespan)
 
-# Static asset mount. If the directory somehow wasn't packaged, don't
-# mount — lifespan will log a clear error. This runs at import time so
-# any INFO logging here would be dropped (root logger is at WARNING
-# until _configure_logging runs), which is why the "static mount"
-# diagnostic is emitted from lifespan() instead.
-_STATIC_DIR = BASE_DIR / "static"
-if _STATIC_DIR.is_dir():
-    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+# Static assets are served via an explicit FastAPI route rather than
+# `app.mount("/static", StaticFiles(...))`. StaticFiles as a mount kept
+# returning 404 under HA ingress for reasons we couldn't diagnose
+# (mount registered, directory + file present, path matches — see
+# 0.1.6/0.1.7 investigation). A plain route with FileResponse is
+# simpler and works. Path is constrained to files inside _STATIC_DIR
+# to prevent traversal.
+_STATIC_DIR = (BASE_DIR / "static").resolve()
+
+
+@app.get("/static/{path:path}", include_in_schema=False)
+async def static_files(path: str):
+    candidate = (_STATIC_DIR / path).resolve()
+    try:
+        candidate.relative_to(_STATIC_DIR)
+    except ValueError:
+        raise HTTPException(status_code=404)
+    if not candidate.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(candidate)
 
 
 # ---------------------------------------------------------------------------

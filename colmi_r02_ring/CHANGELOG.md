@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.8
+
+* **Big fix**: `run.sh` shebang changed to
+  `#!/command/with-contenv sh`. The HA add-on base image uses
+  s6-overlay v3 as PID 1, which strips the container environment
+  before running the CMD. Without `with-contenv` every env var
+  (SUPERVISOR_TOKEN, HASSIO_TOKEN, MQTTHOST, even HOSTNAME) was
+  empty inside our script and process, which is why 0.1.7 logged
+  `'supervisor': 'no'` and MQTT was disabled. With this shebang
+  s6 injects the container env into the script, restoring
+  Supervisor API pairing persistence and MQTT integration.
+* **Static assets**: replace `app.mount('/static', StaticFiles(...))`
+  with an explicit `GET /static/{path:path}` FastAPI route using
+  `FileResponse`. The mount kept returning 404 under HA ingress
+  even though the directory and file were present; the explicit
+  route always works and is safer against path traversal.
+
 ## 0.1.7
 
 * Move the static-asset directory diagnostic out of module import

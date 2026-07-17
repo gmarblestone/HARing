@@ -1,5 +1,12 @@
-#!/usr/bin/env sh
+#!/command/with-contenv sh
 # Entrypoint for the Colmi R02 Ring Home Assistant add-on.
+#
+# The `with-contenv` shebang is critical: the HA add-on base image uses
+# s6-overlay v3 as PID 1, which by default runs CMD with a stripped
+# environment. Without with-contenv the container's env vars
+# (SUPERVISOR_TOKEN, MQTTHOST, HOSTNAME, ...) are all empty inside this
+# script, which broke Supervisor API pairing persistence and MQTT.
+#
 # Reads /data/options.json (populated by the Supervisor from the add-on's
 # `options` schema) and exports them into the environment before starting
 # the uvicorn server.
