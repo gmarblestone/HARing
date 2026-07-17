@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5
+
+* Pairing now connects to the ring immediately after saving the
+  address and reads battery + firmware, so the dashboard shows real
+  values on the first render instead of "—". New banners on the
+  dashboard confirm success (`paired_ok`) or explain that the ring
+  is out of reach (`paired_unreachable`).
+
 ## 0.1.4
 
 * Fix BleakDeviceNotFoundError on refresh status and

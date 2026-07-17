@@ -195,7 +195,35 @@ async def pair_submit(request: Request, address: str = Form(...)):
         logger.info("Supervisor API unavailable; address stored in memory only")
         warn = "no_supervisor"
 
-    target = "./" if not warn else f"./?warn={warn}"
+    # Immediately connect once to confirm the ring is reachable and
+    # populate the dashboard with battery / firmware right away, so the
+    # user doesn't have to click "Refresh status" after pairing. Any
+    # BLE error here is non-fatal — the pairing itself already
+    # succeeded, and the failure is stored in status.last_error which
+    # the dashboard renders.
+    paired_flag = ""
+    try:
+        status = await ring.refresh_status()
+        if status.reachable:
+            paired_flag = "paired_ok"
+            logger.info(
+                "Pair probe ok: %s battery=%s%% fw=%s",
+                address, status.battery_level, status.fw_version,
+            )
+        else:
+            paired_flag = "paired_unreachable"
+            logger.warning(
+                "Pair probe: address saved but ring unreachable: %s",
+                status.last_error,
+            )
+    except Exception as exc:  # noqa: BLE001
+        paired_flag = "paired_unreachable"
+        logger.warning("Pair probe raised: %s", exc)
+
+    # Prefer the warn banner (persistence problem) over the paired
+    # banner because the persistence issue is more important to see.
+    query = warn or paired_flag
+    target = "./" if not query else f"./?warn={query}"
     return RedirectResponse(url=target, status_code=303)
 
 

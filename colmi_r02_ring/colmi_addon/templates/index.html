@@ -14,6 +14,17 @@
   for the Supervisor error; you can also set <code>address</code> manually
   in the Configuration tab.
 </div>
+{% elif warn == 'paired_ok' %}
+<div class="banner ok">
+  Ring paired and reachable — battery and firmware shown below were
+  read during pairing.
+</div>
+{% elif warn == 'paired_unreachable' %}
+<div class="banner warn">
+  Address saved, but the ring didn't answer during pairing. Make sure
+  it's charged, worn (or moved), and not connected to a phone, then
+  click <strong>Refresh status</strong> below.
+</div>
 {% endif %}
 
 <section class="card">

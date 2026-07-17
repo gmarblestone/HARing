@@ -129,3 +129,8 @@ canvas { max-width: 100%; height: auto; margin-top: 0.5rem; }
   border-color: rgba(255, 82, 82, 0.4);
   color: var(--err);
 }
+.banner.ok {
+  background: rgba(46, 204, 113, 0.14);
+  border-color: rgba(46, 204, 113, 0.4);
+  color: #2ecc71;
+}
