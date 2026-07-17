@@ -67,6 +67,32 @@ async def lifespan(app: FastAPI):
     cfg = AddonConfig.from_env()
     _configure_logging(cfg.log_level)
     logger.info("Starting Colmi R02 add-on v%s", __version__)
+
+    # Diagnostic: which of the Supervisor / HA-related env vars are set?
+    # This helps explain 'supervisor: no' when hassio_api is on. We log
+    # presence only, never the value.
+    import os as _os
+    supervisor_env_hints = {
+        name: ("present" if _os.environ.get(name) else "empty/missing")
+        for name in ("SUPERVISOR_TOKEN", "HASSIO_TOKEN", "HASSIO_API",
+                     "SUPERVISOR_API", "HOSTNAME")
+    }
+    logger.info("Supervisor env vars: %s", supervisor_env_hints)
+
+    # Diagnostic: confirm the static asset directory shipped in the image
+    # and log its contents. Emitted here (not at module import) so it
+    # runs after logging is configured.
+    if _STATIC_DIR.is_dir():
+        logger.info(
+            "Static mount: %s (files: %s)",
+            _STATIC_DIR, sorted(p.name for p in _STATIC_DIR.iterdir()),
+        )
+    else:
+        logger.error(
+            "Static directory not found at %s — /static/* will 404.",
+            _STATIC_DIR,
+        )
+
     safe_cfg = {
         k: v for k, v in asdict(cfg).items()
         if "password" not in k and "token" not in k
@@ -99,19 +125,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Colmi R02 Ring", version=__version__, lifespan=lifespan)
 
-# Static asset mount. Log clearly if the directory is missing so the
-# reason for a 404 on /static/... is visible in the add-on logs.
+# Static asset mount. If the directory somehow wasn't packaged, don't
+# mount — lifespan will log a clear error. This runs at import time so
+# any INFO logging here would be dropped (root logger is at WARNING
+# until _configure_logging runs), which is why the "static mount"
+# diagnostic is emitted from lifespan() instead.
 _STATIC_DIR = BASE_DIR / "static"
 if _STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
-    logger.info("Static mount: %s (files: %s)", _STATIC_DIR,
-                sorted(p.name for p in _STATIC_DIR.iterdir()))
-else:
-    logger.error(
-        "Static directory not found at %s — /static/* will 404. This usually "
-        "means the container image was built without colmi_addon/static/.",
-        _STATIC_DIR,
-    )
 
 
 # ---------------------------------------------------------------------------

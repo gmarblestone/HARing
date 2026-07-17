@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.7
+
+* Move the static-asset directory diagnostic out of module import
+  into `lifespan()` so the message actually appears (root logger is
+  at WARNING until `_configure_logging` runs, which suppressed the
+  INFO line in 0.1.6).
+* Log which Supervisor-related env vars are set at startup
+  (`SUPERVISOR_TOKEN`, `HASSIO_TOKEN`, etc.) so we can see why
+  `supervisor: no` still shows despite `hassio_api: true`. Values
+  are never logged, only presence.
+
 ## 0.1.6
 
 * **BLE**: `Client` now accepts a `BLEDevice` in addition to a MAC
