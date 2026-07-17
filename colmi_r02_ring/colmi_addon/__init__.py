@@ -6,4 +6,4 @@ library. It's designed to run inside a Home Assistant Supervisor add-on
 container with ingress enabled.
 """
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"

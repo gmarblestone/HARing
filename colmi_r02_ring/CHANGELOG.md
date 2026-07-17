@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3
+
+* Remove the shipped `apparmor.txt` profile. It only granted read
+  (`/** rmix`) which blocked s6-overlay in the HA base image from
+  writing `/run/s6` and `/run/service` at startup, causing the add-on
+  container to exit with `s6-overlay-suexec: fatal: child failed with
+  exit code 111`. Falling back to Home Assistant's default AppArmor
+  profile lets s6 initialise normally.
+
 ## 0.1.2
 
 * Restructure the repository into a proper Home Assistant add-on
